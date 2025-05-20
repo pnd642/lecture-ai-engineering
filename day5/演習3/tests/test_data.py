@@ -14,6 +14,25 @@ DATA_PATH = os.path.join(os.path.dirname(__file__), "../data/Titanic.csv")
 
 
 @pytest.fixture
+
+def test_prediction_probability_distribution(train_model):
+    """推論結果の確率分布を検証（正規化されているか、異常な偏りがないか）"""
+    model, X_test, _ = train_model
+
+    if not hasattr(model.named_steps["classifier"], "predict_proba"):
+        pytest.skip("このモデルでは predict_proba がサポートされていません")
+
+    probabilities = model.predict_proba(X_test)
+
+    # 各行の確率が1.0前後であることを確認
+    row_sums = probabilities.sum(axis=1)
+    assert np.allclose(row_sums, 1.0, atol=1e-3), "予測確率の合計が1ではありません"
+
+    # 分布のバランス確認（例：偏りすぎをチェック）
+    mean_probs = np.mean(probabilities, axis=0)
+    max_diff = np.abs(mean_probs[0] - mean_probs[1])
+    assert max_diff < 0.8, f"クラス確率の平均に極端な偏りがあります: {mean_probs}"
+
 def sample_data():
     """Titanicテスト用データセットを読み込む"""
     return pd.read_csv(DATA_PATH)
